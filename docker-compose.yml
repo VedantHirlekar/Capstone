@@ -58,7 +58,7 @@ services:
       DB_PORT: ${DB_PORT}
 
   nginx:
-    image: nginx:latest
+    build: ./nginx
     container_name: api-gateway
     ports:
       - "8080:80"

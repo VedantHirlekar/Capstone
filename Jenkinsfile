@@ -17,15 +17,27 @@ pipeline {
         }
 
         stage('Build Docker Images') {
-            steps {
-                sh '''
-                docker build -t express-app ./express_app
-                docker build -t fastapi-app ./fastapi_app
-                docker build -t springboot-app ./springboot_app
-                docker build -t dotnet-app ./dotnet_app
-                '''
-            }
-        }
+    steps {
+        sh '''
+        set -e
+
+        echo "Building express..."
+        docker build -t express-app ./express_app
+
+        echo "Building fastapi..."
+        docker build -t fastapi-app ./fastapi_app
+
+        echo "Building springboot..."
+        docker build -t springboot-app ./springboot_app
+
+        echo "Building dotnet..."
+        docker build -t dotnet-app ./dotnet_app
+
+        echo "Building nginx..."
+        docker build -t nginx-gateway ./nginx
+        '''
+    }
+}
 
         stage('Login to ECR') {
             steps {
@@ -43,6 +55,7 @@ pipeline {
                 docker tag fastapi-app $ECR_URL/fastapi-app:latest
                 docker tag springboot-app $ECR_URL/springboot-app:latest
                 docker tag dotnet-app $ECR_URL/dotnet-app:latest
+                docker tag nginx-gateway $ECR_URL/nginx-gateway:latest
                 '''
             }
         }
@@ -54,6 +67,7 @@ pipeline {
                 docker push $ECR_URL/fastapi-app:latest
                 docker push $ECR_URL/springboot-app:latest
                 docker push $ECR_URL/dotnet-app:latest
+                docker push $ECR_URL/nginx-gateway:latest
                 '''
             }
         }
