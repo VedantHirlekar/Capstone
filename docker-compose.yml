@@ -1,7 +1,9 @@
+version: "3.8"
+
 services:
 
   express:
-    build: ./express_app
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/express-app:latest
     container_name: express-app
     ports:
       - "3001:3001"
@@ -16,7 +18,7 @@ services:
       PORT: 3001
 
   fastapi:
-    build: ./fastapi_app
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/fastapi-app:latest
     container_name: fastapi-app
     ports:
       - "8002:8002"
@@ -30,40 +32,32 @@ services:
       DB_PORT: ${DB_PORT}
 
   springboot:
-    build: ./springboot_app
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/springboot-app:latest
     container_name: springboot-app
     ports:
       - "8003:8003"
     networks:
       - capstone-net
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      DB_PORT: ${DB_PORT}
+      SPRING_DATASOURCE_URL: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 
   dotnet:
-    build: ./dotnet_app
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/dotnet-app:latest
     container_name: dotnet-app
     ports:
       - "8004:8080"
     networks:
       - capstone-net
     environment:
-      DB_HOST: ${DB_HOST}
-      DB_USER: ${DB_USER}
-      DB_PASSWORD: ${DB_PASSWORD}
-      DB_NAME: ${DB_NAME}
-      DB_PORT: ${DB_PORT}
+      ConnectionStrings__DefaultConnection: Server=capstonedb.cf26uges24cv.eu-north-1.rds.amazonaws.com;Port=3306;Database=capstone_db;Uid=admin;Pwd=vedanthirlekar;
 
   nginx:
-    build: ./nginx
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/nginx-gateway:latest
     container_name: api-gateway
     ports:
       - "8080:80"
-    volumes:
-      - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
     depends_on:
       - express
       - fastapi
@@ -74,3 +68,4 @@ services:
 
 networks:
   capstone-net:
+    driver: bridge
