@@ -94,22 +94,23 @@ pipeline {
                 sh """
                 set -e
 
-                echo "Deploying to EC2 via SSM..."
+                echo "Deploying version: $IMAGE_TAG"
 
                 aws ssm send-command \
                   --region $AWS_REGION \
                   --instance-ids $INSTANCE_ID \
                   --document-name "AWS-RunShellScript" \
-                  --comment "Deploy Docker Containers" \
+                  --comment "Deploy version $IMAGE_TAG" \
                   --parameters "{\\"commands\\":[
                     \\"cd /home/ssm-user/capstone-project\\",
+                    \\"export IMAGE_TAG=$IMAGE_TAG\\",
                     \\"docker-compose down || true\\",
                     \\"docker-compose pull\\",
                     \\"docker-compose up -d\\"
                   ]}" \
                   --output text
 
-                echo "SSM command sent successfully"
+                echo "Deployment sent successfully"
                 """
             }
         }
