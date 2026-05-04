@@ -84,7 +84,7 @@ pipeline {
                   --instance-ids $INSTANCE_ID \
                   --document-name "AWS-RunShellScript" \
                   --comment "Deploy Docker Containers" \
-                  --parameters '{"commands":["cd /home/ssm-user/capstone-project","docker-compose down","docker-compose pull","docker-compose up -d"]}' \
+                  --parameters '{"commands":["echo HELLO_FROM_SSM"]}'
                   --output text
 
                 echo "Deployment command sent successfully"
