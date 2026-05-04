@@ -85,7 +85,7 @@ pipeline {
                   --document-name "AWS-RunShellScript" \
                   --comment "Deploy Docker Containers" \
                   --parameters "{\\"commands\\":[
-                    \\"cd /home/ubuntu/capstone-project\\",
+                    \\"cd /home/ssm-user/capstone-project\\",
                     \\"docker-compose down || true\\",
                     \\"docker-compose pull\\",
                     \\"docker-compose up -d\\"
