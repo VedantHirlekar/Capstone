@@ -3,8 +3,8 @@ pipeline {
 
     environment {
         AWS_REGION = "eu-north-1"
-        ACCOUNT_ID = "YOUR_AWS_ACCOUNT_ID"
         ECR_URL = "767398016991.dkr.ecr.eu-north-1.amazonaws.com"
+        INSTANCE_ID = "i-0c4b303e260d39a2b"
     }
 
     stages {
@@ -17,27 +17,27 @@ pipeline {
         }
 
         stage('Build Docker Images') {
-    steps {
-        sh '''
-        set -e
+            steps {
+                sh '''
+                set -e
 
-        echo "Building express..."
-        docker build -t express-app ./express_app
+                echo "Building express..."
+                docker build -t express-app ./express_app
 
-        echo "Building fastapi..."
-        docker build -t fastapi-app ./fastapi_app
+                echo "Building fastapi..."
+                docker build -t fastapi-app ./fastapi_app
 
-        echo "Building springboot..."
-        docker build -t springboot-app ./springboot_app
+                echo "Building springboot..."
+                docker build -t springboot-app ./springboot_app
 
-        echo "Building dotnet..."
-        docker build -t dotnet-app ./dotnet_app
+                echo "Building dotnet..."
+                docker build -t dotnet-app ./dotnet_app
 
-        echo "Building nginx..."
-        docker build -t nginx-gateway ./nginx
-        '''
-    }
-}
+                echo "Building nginx..."
+                docker build -t nginx-gateway ./nginx
+                '''
+            }
+        }
 
         stage('Login to ECR') {
             steps {
@@ -71,22 +71,25 @@ pipeline {
                 '''
             }
         }
-     stage('Deploy on EC2 via SSM') {
-    steps {
-        sh '''
-        set -e
 
-        echo "Sending SSM command..."
+        stage('Deploy on EC2 via SSM') {
+            steps {
+                sh '''
+                set -e
 
-        aws ssm send-command \
-          --region $AWS_REGION \
-          --instance-ids i-0c4b303e260d39a2b \
-          --document-name "AWS-RunShellScript" \
-          --comment "Deploy Docker Containers" \
-          --parameters '{"commands":["cd /home/ssm-user/capstone-project","docker-compose down","docker-compose up -d --build"]}' \
-          --output text
-        '''
-    }
-}
+                echo "Deploying to EC2 via SSM..."
+
+                aws ssm send-command \
+                  --region $AWS_REGION \
+                  --instance-ids $INSTANCE_ID \
+                  --document-name "AWS-RunShellScript" \
+                  --comment "Deploy Docker Containers" \
+                  --parameters '{"commands":["cd /home/ssm-user/capstone-project","docker-compose down","docker-compose pull","docker-compose up -d"]}' \
+                  --output text
+
+                echo "Deployment command sent successfully"
+                '''
+            }
+        }
     }
 }
