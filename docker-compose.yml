@@ -3,31 +3,69 @@ version: "3.8"
 services:
 
   express:
-    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/express-app:${IMAGE_TAG}
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/express-app:latest
     container_name: express-app
     ports:
       - "3001:3001"
+    networks:
+      - capstone-net
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
+      PORT: 3001
 
   fastapi:
-    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/fastapi-app:${IMAGE_TAG}
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/fastapi-app:latest
     container_name: fastapi-app
     ports:
       - "8002:8002"
+    networks:
+      - capstone-net
+    environment:
+      DB_HOST: ${DB_HOST}
+      DB_USER: ${DB_USER}
+      DB_PASSWORD: ${DB_PASSWORD}
+      DB_NAME: ${DB_NAME}
+      DB_PORT: ${DB_PORT}
 
   springboot:
-    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/springboot-app:${IMAGE_TAG}
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/springboot-app:latest
     container_name: springboot-app
     ports:
       - "8003:8003"
+    networks:
+      - capstone-net
+    environment:
+      SPRING_DATASOURCE_URL: jdbc:mysql://${DB_HOST}:${DB_PORT}/${DB_NAME}
+      SPRING_DATASOURCE_USERNAME: ${DB_USER}
+      SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 
   dotnet:
-    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/dotnet-app:${IMAGE_TAG}
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/dotnet-app:latest
     container_name: dotnet-app
     ports:
       - "8004:8080"
+    networks:
+      - capstone-net
+    environment:
+      ConnectionStrings__DefaultConnection: Server=capstonedb.cf26uges24cv.eu-north-1.rds.amazonaws.com;Port=3306;Database=capstone_db;Uid=admin;Pwd=vedanthirlekar;
 
   nginx:
-    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/nginx-gateway:${IMAGE_TAG}
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/nginx-gateway:latest
     container_name: api-gateway
     ports:
       - "8080:80"
+    depends_on:
+      - express
+      - fastapi
+      - springboot
+      - dotnet
+    networks:
+      - capstone-net
+
+networks:
+  capstone-net:
+    driver: bridge
