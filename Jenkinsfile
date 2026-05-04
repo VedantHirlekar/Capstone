@@ -79,7 +79,7 @@ pipeline {
           --instance-ids i-0c4b303e260d39a2b \
           --document-name "AWS-RunShellScript" \
           --comment "Deploy Docker Containers" \
-          --parameters commands="cd /home/ssm-user/capstone-project,docker-compose down,docker-compose up -d --build" \
+          --parameters '{"commands":["cd /home/ssm-user/capstone-project","docker-compose down","docker-compose up -d --build"]}' \
           --output text
         '''
     }
