@@ -81,27 +81,24 @@ pipeline {
         cat > commands.json <<EOF
 {
   "commands": [
-    "cd /home/ssm-user/capstone-project",
-    "docker-compose down",
-    "docker-compose up -d --build"
+    "cd /home/ssm-user/capstone-project && docker-compose down && docker-compose up -d --build"
   ]
 }
 EOF
 
-        echo "Printing commands.json for debugging:"
+        echo "Printing commands.json:"
         cat commands.json
 
-        echo "Running SSM command..."
+        echo "Sending SSM command..."
 
         aws ssm send-command \
           --region $AWS_REGION \
           --instance-ids i-0c4b303e260d39a2b \
-          --document-name "AWS-RunShellScript" \
-          --comment "Deploy Docker Containers" \
+          --document-name AWS-RunShellScript \
           --parameters file://commands.json \
           --output text
 
-        echo "SSM command sent successfully"
+        echo "SSM command executed"
         '''
     }
 }
