@@ -71,6 +71,18 @@ pipeline {
                 '''
             }
         }
-
+     stage('Deploy on EC2 via SSM') {
+    steps {
+        sh '''
+        aws ssm send-command \
+          --region $AWS_REGION \
+          --instance-ids i-0c4b303e260d39a2b \
+          --document-name "AWS-RunShellScript" \
+          --comment "Deploy Docker Containers" \
+          --parameters commands="cd ~/capstone-project && docker-compose down && docker-compose up -d --build" \
+          --output text
+        '''
+    }
+}
     }
 }
