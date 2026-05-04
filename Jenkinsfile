@@ -74,7 +74,7 @@ pipeline {
 
         stage('Deploy on EC2 via SSM') {
             steps {
-                sh '''
+                sh """
                 set -e
 
                 echo "Deploying to EC2 via SSM..."
@@ -84,11 +84,16 @@ pipeline {
                   --instance-ids $INSTANCE_ID \
                   --document-name "AWS-RunShellScript" \
                   --comment "Deploy Docker Containers" \
-                  --parameters '{"commands":["echo HELLO_FROM_SSM"]}'
+                  --parameters "{\\"commands\\":[
+                    \\"cd /home/ubuntu/capstone-project\\",
+                    \\"docker-compose down || true\\",
+                    \\"docker-compose pull\\",
+                    \\"docker-compose up -d\\"
+                  ]}" \
                   --output text
 
-                echo "Deployment command sent successfully"
-                '''
+                echo "SSM command sent successfully"
+                """
             }
         }
     }
