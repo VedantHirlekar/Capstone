@@ -5,6 +5,7 @@ pipeline {
         AWS_REGION = "eu-north-1"
         ECR_URL = "767398016991.dkr.ecr.eu-north-1.amazonaws.com"
         INSTANCE_ID = "i-0c4b303e260d39a2b"
+        IMAGE_TAG = "${BUILD_NUMBER}"
     }
 
     stages {
@@ -22,19 +23,19 @@ pipeline {
                 set -e
 
                 echo "Building express..."
-                docker build -t express-app ./express_app
+                docker build -t express-app:$IMAGE_TAG ./express_app
 
                 echo "Building fastapi..."
-                docker build -t fastapi-app ./fastapi_app
+                docker build -t fastapi-app:$IMAGE_TAG ./fastapi_app
 
                 echo "Building springboot..."
-                docker build -t springboot-app ./springboot_app
+                docker build -t springboot-app:$IMAGE_TAG ./springboot_app
 
                 echo "Building dotnet..."
-                docker build -t dotnet-app ./dotnet_app
+                docker build -t dotnet-app:$IMAGE_TAG ./dotnet_app
 
                 echo "Building nginx..."
-                docker build -t nginx-gateway ./nginx
+                docker build -t nginx-gateway:$IMAGE_TAG ./nginx
                 '''
             }
         }
@@ -51,11 +52,19 @@ pipeline {
         stage('Tag Images') {
             steps {
                 sh '''
-                docker tag express-app $ECR_URL/express-app:latest
-                docker tag fastapi-app $ECR_URL/fastapi-app:latest
-                docker tag springboot-app $ECR_URL/springboot-app:latest
-                docker tag dotnet-app $ECR_URL/dotnet-app:latest
-                docker tag nginx-gateway $ECR_URL/nginx-gateway:latest
+                # version tags
+                docker tag express-app:$IMAGE_TAG $ECR_URL/express-app:$IMAGE_TAG
+                docker tag fastapi-app:$IMAGE_TAG $ECR_URL/fastapi-app:$IMAGE_TAG
+                docker tag springboot-app:$IMAGE_TAG $ECR_URL/springboot-app:$IMAGE_TAG
+                docker tag dotnet-app:$IMAGE_TAG $ECR_URL/dotnet-app:$IMAGE_TAG
+                docker tag nginx-gateway:$IMAGE_TAG $ECR_URL/nginx-gateway:$IMAGE_TAG
+
+                # latest tags
+                docker tag express-app:$IMAGE_TAG $ECR_URL/express-app:latest
+                docker tag fastapi-app:$IMAGE_TAG $ECR_URL/fastapi-app:latest
+                docker tag springboot-app:$IMAGE_TAG $ECR_URL/springboot-app:latest
+                docker tag dotnet-app:$IMAGE_TAG $ECR_URL/dotnet-app:latest
+                docker tag nginx-gateway:$IMAGE_TAG $ECR_URL/nginx-gateway:latest
                 '''
             }
         }
@@ -63,6 +72,14 @@ pipeline {
         stage('Push to ECR') {
             steps {
                 sh '''
+                # version push
+                docker push $ECR_URL/express-app:$IMAGE_TAG
+                docker push $ECR_URL/fastapi-app:$IMAGE_TAG
+                docker push $ECR_URL/springboot-app:$IMAGE_TAG
+                docker push $ECR_URL/dotnet-app:$IMAGE_TAG
+                docker push $ECR_URL/nginx-gateway:$IMAGE_TAG
+
+                # latest push
                 docker push $ECR_URL/express-app:latest
                 docker push $ECR_URL/fastapi-app:latest
                 docker push $ECR_URL/springboot-app:latest
