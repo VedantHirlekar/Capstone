@@ -23,16 +23,16 @@ pipeline {
                 set -e
 
                 echo "Building express..."
-                docker build -t express-app:$IMAGE_TAG ./express_app
+                docker build --no-cache -t express-app:$IMAGE_TAG ./express_app
 
                 echo "Building fastapi..."
-                docker build -t fastapi-app:$IMAGE_TAG ./fastapi_app
+                docker build --no-cache -t fastapi-app:$IMAGE_TAG ./fastapi_app
 
                 echo "Building springboot..."
-                docker build -t springboot-app:$IMAGE_TAG ./springboot_app
+                docker build --no-cache -t springboot-app:$IMAGE_TAG ./springboot_app
 
                 echo "Building dotnet..."
-                docker build -t dotnet-app:$IMAGE_TAG ./dotnet_app
+                docker build --no-cache -t dotnet-app:$IMAGE_TAG ./dotnet_app
 
                 echo "Building nginx..."
                 docker build -t nginx-gateway:$IMAGE_TAG ./nginx
