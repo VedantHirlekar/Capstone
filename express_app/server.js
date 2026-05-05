@@ -34,6 +34,46 @@ app.use((req, res, next) => {
 });
 
 /* =========================================
+   🏥 HEALTH CHECK ENDPOINT (NEW)
+========================================= */
+app.get("/health", async (req, res) => {
+  const healthCheck = {
+    status: "healthy",
+    timestamp: new Date().toISOString(),
+    service: "express-app",
+    version: "1.0.0",
+    uptime: process.uptime(),
+    checks: {
+      database: "unknown",
+      memory: {
+        usage: process.memoryUsage(),
+        heapUsed: `${Math.round(process.memoryUsage().heapUsed / 1024 / 1024)} MB`,
+        heapTotal: `${Math.round(process.memoryUsage().heapTotal / 1024 / 1024)} MB`
+      }
+    }
+  };
+
+  // Check database connectivity
+  try {
+    await new Promise((resolve, reject) => {
+      db.query("SELECT 1", (err, result) => {
+        if (err) reject(err);
+        else resolve(result);
+      });
+    });
+    healthCheck.checks.database = "connected";
+  } catch (err) {
+    healthCheck.checks.database = "disconnected";
+    healthCheck.status = "degraded";
+    console.log("⚠️ Health check - DB connection failed:", err.message);
+  }
+
+  // Send response with appropriate status code
+  const statusCode = healthCheck.status === "healthy" ? 200 : 503;
+  res.status(statusCode).json(healthCheck);
+});
+
+/* =========================================
    🗄️ MySQL CONFIG
 ========================================= */
 const dbConfig = {
@@ -102,8 +142,25 @@ app.post("/employees", (req, res) => {
 });
 
 /* =========================================
+   📊 METRICS ENDPOINT for Prometheus (OPTIONAL)
+========================================= */
+app.get("/metrics", (req, res) => {
+  const metrics = {
+    nodejs_version: process.version,
+    platform: process.platform,
+    memory_usage_bytes: process.memoryUsage().heapUsed,
+    uptime_seconds: process.uptime(),
+    total_requests: global.requestCount || 0
+  };
+  res.json(metrics);
+});
+
+/* =========================================
    🚀 SERVER START
 ========================================= */
-app.listen(process.env.PORT, () => {
-  console.log(`🚀 Express running on port ${process.env.PORT}`);
+const PORT = process.env.PORT || 3001;
+app.listen(PORT, () => {
+  console.log(`🚀 Express running on port ${PORT}`);
+  console.log(`🏥 Health endpoint available at http://localhost:${PORT}/health`);
+  console.log(`📊 Metrics endpoint available at http://localhost:${PORT}/metrics`);
 });
