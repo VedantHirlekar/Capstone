@@ -1,11 +1,159 @@
+Vedant Hirlekar <vedant.hirlekar@tudip.com>
+	
+2:35 PM (1 hour ago)
+	
+	
+to me
+FROM node:18
+
+WORKDIR /app
+
+COPY package*.json ./
+
+RUN npm install
+
+COPY . .
+
+EXPOSE 3001
+
+CMD ["node", "server.js"]
+
+
+
+require("dotenv").config(); // 👈 MUST be at top
+
+const express = require("express");
+const mysql = require("mysql2");
+//const cors = require("cors");
+
+const app = express();
+
+//app.use(cors());
+app.use(express.json());
+
+/* =========================================
+   🔥 GLOBAL REQUEST LOGGER (VERY IMPORTANT)
+========================================= */
+app.use((req, res, next) => {
+  const start = Date.now();
+
+  // Log incoming request
+  console.log(`🔥 EXPRESS HIT → ${req.method} ${req.url}`);
+
+  // Log request body for POST/PUT
+  if (req.method === "POST" || req.method === "PUT") {
+    console.log("📦 Body:", req.body);
+  }
+
+  // Log response after it finishes
+  res.on("finish", () => {
+    console.log(
+      `✅ EXPRESS RESPONSE → ${req.method} ${req.url} | ${res.statusCode} | ${Date.now() - start}ms`
+    );
+  });
+
+  next();
+});
+
+/* =========================================
+   🗄️ MySQL CONFIG
+========================================= */
+const dbConfig = {
+  host: process.env.DB_HOST,
+  user: process.env.DB_USER,
+  password: process.env.DB_PASSWORD,
+  database: process.env.DB_NAME,
+  port: process.env.DB_PORT
+};
+
+let db;
+
+function handleDisconnect() {
+  db = mysql.createConnection(dbConfig);
+
+  db.connect((err) => {
+    if (err) {
+      console.log("❌ DB connection failed. Retrying in 3s...", err.message);
+      setTimeout(handleDisconnect, 3000);
+    } else {
+      console.log("✅ Connected to MySQL");
+    }
+  });
+
+  db.on("error", (err) => {
+    console.log("❌ DB error:", err.message);
+
+    if (err.code === "PROTOCOL_CONNECTION_LOST") {
+      handleDisconnect();
+    }
+  });
+}
+
+handleDisconnect();
+
+/* =========================================
+   📡 ROUTES
+========================================= */
+
+// GET employees
+app.get("/employees", (req, res) => {
+  db.query("SELECT * FROM employees", (err, result) => {
+    if (err) {
+      console.log("❌ DB SELECT ERROR:", err.message);
+      return res.status(500).json({ error: "DB error" });
+    }
+    res.json(result);
+  });
+});
+
+// POST employee
+app.post("/employees", (req, res) => {
+  const { name, phone } = req.body;
+
+  db.query(
+    "INSERT INTO employees (name, phone) VALUES (?, ?)",
+    [name, phone],
+    (err) => {
+      if (err) {
+        console.log("❌ DB INSERT ERROR:", err.message);
+        return res.status(500).json({ error: "Insert failed" });
+      }
+      res.json({ message: "Employee added" });
+    }
+  );
+});
+
+/* =========================================
+   🚀 SERVER START
+========================================= */
+app.listen(process.env.PORT, () => {
+  console.log(`🚀 Express running on port ${process.env.PORT}`);
+});
+
+
+
+
+FROM python:3.12-slim
+
+WORKDIR /app
+
+COPY requirements.txt .
+
+RUN pip install --no-cache-dir -r requirements.txt
+
+COPY . .
+
+CMD ["uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8002"]
+
+
+
+
 from fastapi import FastAPI, Request
 from pydantic import BaseModel
 import mysql.connector
 from fastapi.middleware.cors import CORSMiddleware
 import time
 import os
-import psutil
-from datetime import datetime
 from dotenv import load_dotenv
 
 # load .env file
@@ -26,11 +174,6 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
-    
-    # Track request count for metrics
-    if not hasattr(app, "request_count"):
-        app.request_count = 0
-    app.request_count += 1
 
     print(f"🔥 FASTAPI HIT → {request.method} {request.url}")
 
@@ -49,6 +192,7 @@ async def log_requests(request: Request, call_next):
 
     return response
 
+
 # ENV CONFIG
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -58,102 +202,16 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT"))
 }
 
-# Database connection pool (improved for health checks)
-db_connection = None
-
+# DB connection retry
 def get_connection():
-    global db_connection
-    try:
-        if db_connection is None or not db_connection.is_connected():
-            db_connection = mysql.connector.connect(**DB_CONFIG)
+    while True:
+        try:
+            conn = mysql.connector.connect(**DB_CONFIG)
             print("✅ FastAPI connected to DB")
-        return db_connection
-    except Exception as e:
-        print("❌ DB connection error:", e)
-        raise e
-
-# ============================================
-# 🏥 HEALTH CHECK ENDPOINT (NEW)
-# ============================================
-@app.get("/health")
-async def health_check():
-    health_info = {
-        "status": "healthy",
-        "timestamp": datetime.now().isoformat(),
-        "service": "fastapi-app",
-        "version": "1.0.0",
-        "uptime_seconds": time.time() - app.start_time if hasattr(app, "start_time") else 0,
-        "checks": {
-            "database": "unknown",
-            "memory": {
-                "usage_percent": psutil.virtual_memory().percent,
-                "available_mb": psutil.virtual_memory().available // (1024 * 1024),
-                "used_mb": psutil.virtual_memory().used // (1024 * 1024)
-            },
-            "cpu": {
-                "usage_percent": psutil.cpu_percent(interval=1),
-                "cores": psutil.cpu_count()
-            }
-        },
-        "request_stats": {
-            "total_requests": getattr(app, "request_count", 0)
-        }
-    }
-    
-    # Check database connectivity
-    try:
-        conn = get_connection()
-        cursor = conn.cursor()
-        cursor.execute("SELECT 1")
-        cursor.fetchone()
-        cursor.close()
-        health_info["checks"]["database"] = "connected"
-    except Exception as e:
-        health_info["checks"]["database"] = "disconnected"
-        health_info["status"] = "degraded"
-        health_info["error"] = str(e)
-        print(f"⚠️ Health check - DB connection failed: {e}")
-    
-    # Set status code based on health
-    status_code = 200 if health_info["status"] == "healthy" else 503
-    return health_info, status_code
-
-# ============================================
-# 📊 METRICS ENDPOINT for Prometheus (OPTIONAL)
-# ============================================
-@app.get("/metrics")
-async def metrics():
-    from prometheus_client import generate_latest, REGISTRY, Counter, Histogram, Gauge
-    
-    # Define metrics if not already defined
-    if not hasattr(app, "metrics_initialized"):
-        app.request_counter = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
-        app.request_duration = Histogram('http_request_duration_seconds', 'HTTP request duration', ['method', 'endpoint'])
-        app.active_connections = Gauge('active_connections', 'Active connections')
-        app.metrics_initialized = True
-    
-    # Update metrics
-    app.active_connections.set(len(app.state.__dict__.get("connections", [])))
-    
-    return generate_latest(REGISTRY)
-
-# Store start time on app startup
-@app.on_event("startup")
-async def startup_event():
-    app.start_time = time.time()
-    print("🚀 FastAPI application started")
-    print(f"🏥 Health endpoint available at /health")
-    print(f"📊 Metrics endpoint available at /metrics")
-    
-    # Initialize DB connection
-    try:
-        get_connection()
-    except Exception as e:
-        print(f"⚠️ Initial DB connection failed: {e}")
-
-# ============================================
-# ORIGINAL ROUTES
-# ============================================
+            return conn
+        except Exception as e:
+            print("❌ DB retrying...", e)
+            time.sleep(3)
 
 # Model
 class Employee(BaseModel):
@@ -191,12 +249,3 @@ def add_employee(emp: Employee):
     conn.close()
 
     return {"message": "Employee added"}
-
-# Root endpoint (optional)
-@app.get("/")
-async def root():
-    return {
-        "message": "FastAPI Employee Service",
-        "service": "fastapi-app",
-        "endpoints": ["/employees", "/health", "/metrics"]
-    }
