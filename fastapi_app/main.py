@@ -4,6 +4,8 @@ import mysql.connector
 from fastapi.middleware.cors import CORSMiddleware
 import time
 import os
+import psutil
+from datetime import datetime
 from dotenv import load_dotenv
 
 # load .env file
@@ -24,6 +26,11 @@ app.add_middleware(
 @app.middleware("http")
 async def log_requests(request: Request, call_next):
     start_time = time.time()
+    
+    # Track request count for metrics
+    if not hasattr(app, "request_count"):
+        app.request_count = 0
+    app.request_count += 1
 
     print(f"🔥 FASTAPI HIT → {request.method} {request.url}")
 
@@ -42,7 +49,6 @@ async def log_requests(request: Request, call_next):
 
     return response
 
-
 # ENV CONFIG
 DB_CONFIG = {
     "host": os.getenv("DB_HOST"),
@@ -52,16 +58,102 @@ DB_CONFIG = {
     "port": int(os.getenv("DB_PORT"))
 }
 
-# DB connection retry
+# Database connection pool (improved for health checks)
+db_connection = None
+
 def get_connection():
-    while True:
-        try:
-            conn = mysql.connector.connect(**DB_CONFIG)
+    global db_connection
+    try:
+        if db_connection is None or not db_connection.is_connected():
+            db_connection = mysql.connector.connect(**DB_CONFIG)
             print("✅ FastAPI connected to DB")
-            return conn
-        except Exception as e:
-            print("❌ DB retrying...", e)
-            time.sleep(3)
+        return db_connection
+    except Exception as e:
+        print("❌ DB connection error:", e)
+        raise e
+
+# ============================================
+# 🏥 HEALTH CHECK ENDPOINT (NEW)
+# ============================================
+@app.get("/health")
+async def health_check():
+    health_info = {
+        "status": "healthy",
+        "timestamp": datetime.now().isoformat(),
+        "service": "fastapi-app",
+        "version": "1.0.0",
+        "uptime_seconds": time.time() - app.start_time if hasattr(app, "start_time") else 0,
+        "checks": {
+            "database": "unknown",
+            "memory": {
+                "usage_percent": psutil.virtual_memory().percent,
+                "available_mb": psutil.virtual_memory().available // (1024 * 1024),
+                "used_mb": psutil.virtual_memory().used // (1024 * 1024)
+            },
+            "cpu": {
+                "usage_percent": psutil.cpu_percent(interval=1),
+                "cores": psutil.cpu_count()
+            }
+        },
+        "request_stats": {
+            "total_requests": getattr(app, "request_count", 0)
+        }
+    }
+    
+    # Check database connectivity
+    try:
+        conn = get_connection()
+        cursor = conn.cursor()
+        cursor.execute("SELECT 1")
+        cursor.fetchone()
+        cursor.close()
+        health_info["checks"]["database"] = "connected"
+    except Exception as e:
+        health_info["checks"]["database"] = "disconnected"
+        health_info["status"] = "degraded"
+        health_info["error"] = str(e)
+        print(f"⚠️ Health check - DB connection failed: {e}")
+    
+    # Set status code based on health
+    status_code = 200 if health_info["status"] == "healthy" else 503
+    return health_info, status_code
+
+# ============================================
+# 📊 METRICS ENDPOINT for Prometheus (OPTIONAL)
+# ============================================
+@app.get("/metrics")
+async def metrics():
+    from prometheus_client import generate_latest, REGISTRY, Counter, Histogram, Gauge
+    
+    # Define metrics if not already defined
+    if not hasattr(app, "metrics_initialized"):
+        app.request_counter = Counter('http_requests_total', 'Total HTTP requests', ['method', 'endpoint'])
+        app.request_duration = Histogram('http_request_duration_seconds', 'HTTP request duration', ['method', 'endpoint'])
+        app.active_connections = Gauge('active_connections', 'Active connections')
+        app.metrics_initialized = True
+    
+    # Update metrics
+    app.active_connections.set(len(app.state.__dict__.get("connections", [])))
+    
+    return generate_latest(REGISTRY)
+
+# Store start time on app startup
+@app.on_event("startup")
+async def startup_event():
+    app.start_time = time.time()
+    print("🚀 FastAPI application started")
+    print(f"🏥 Health endpoint available at /health")
+    print(f"📊 Metrics endpoint available at /metrics")
+    
+    # Initialize DB connection
+    try:
+        get_connection()
+    except Exception as e:
+        print(f"⚠️ Initial DB connection failed: {e}")
+
+# ============================================
+# ORIGINAL ROUTES
+# ============================================
 
 # Model
 class Employee(BaseModel):
@@ -99,3 +191,12 @@ def add_employee(emp: Employee):
     conn.close()
 
     return {"message": "Employee added"}
+
+# Root endpoint (optional)
+@app.get("/")
+async def root():
+    return {
+        "message": "FastAPI Employee Service",
+        "service": "fastapi-app",
+        "endpoints": ["/employees", "/health", "/metrics"]
+    }
