@@ -1,0 +1,58 @@
+global:
+  resolve_timeout: 5m
+  # Slack configuration (uncomment and configure if needed)
+  # slack_api_url: 'https://hooks.slack.com/services/YOUR/SLACK/WEBHOOK'
+  
+  # Email configuration (uncomment and configure if needed)
+  # smtp_smarthost: 'smtp.gmail.com:587'
+  # smtp_from: 'alertmanager@example.com'
+  # smtp_auth_username: 'alertmanager@example.com'
+  # smtp_auth_password: 'your-password'
+
+# Templates
+templates:
+  - '/etc/alertmanager/templates/*.tmpl'
+
+# Route configuration
+route:
+  receiver: 'default-receiver'
+  group_by: ['alertname', 'cluster', 'service']
+  group_wait: 10s
+  group_interval: 10s
+  repeat_interval: 1h
+  
+  routes:
+    - match:
+        severity: critical
+      receiver: 'critical-receiver'
+      continue: true
+      
+    - match:
+        severity: warning
+      receiver: 'warning-receiver'
+
+# Receivers
+receivers:
+  - name: 'default-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9093/dummy'  # Placeholder
+    
+  - name: 'critical-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9093/dummy'  # Replace with actual webhook
+    # email_configs:
+    #   - to: 'team@example.com'
+    #     headers:
+    #       Subject: '[CRITICAL] {{ .GroupLabels.alertname }}'
+    
+  - name: 'warning-receiver'
+    webhook_configs:
+      - url: 'http://localhost:9093/dummy'  # Replace with actual webhook
+
+# Inhibition rules
+inhibit_rules:
+  - source_match:
+      severity: 'critical'
+    target_match:
+      severity: 'warning'
+    equal: ['alertname', 'instance']
