@@ -44,15 +44,14 @@ services:
       SPRING_DATASOURCE_PASSWORD: ${DB_PASSWORD}
 
   dotnet:
-  image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/dotnet-app:latest
-  container_name: dotnet-app
-  ports:
-    - "8004:8080"
-  networks:
-    - capstone-net
-  environment:
-    - ConnectionStrings__DefaultConnection=Server=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Uid=${DB_USER};Pwd=${DB_PASSWORD}
-
+    image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/dotnet-app:latest
+    container_name: dotnet-app
+    ports:
+      - "8004:8080"
+    networks:
+      - capstone-net
+    environment:
+      ConnectionStrings__DefaultConnection: Server=${DB_HOST};Port=${DB_PORT};Database=${DB_NAME};Uid=${DB_USER};Pwd=${DB_PASSWORD}
   nginx:
     image: 767398016991.dkr.ecr.eu-north-1.amazonaws.com/nginx-gateway:latest
     container_name: api-gateway
